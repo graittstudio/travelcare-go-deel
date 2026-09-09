@@ -1,0 +1,320 @@
+<!--
+  #188: de publieke "deel"-pagina van een Camperoverdracht. Gehost op GitHub
+  Pages (gh-pages branch, deze map als root) - zowel de "downloads"-
+  Storage-bucket als een Edge Function bleken door Supabase's platform af en
+  toe (onvoorspelbaar, niet zelf te overschrijven) gedowngraded te worden
+  naar text/plain + een sandbox-CSP, waardoor de browser de broncode toonde
+  i.p.v. de pagina te renderen - bevestigd met herhaalde curl-tests én op
+  een echt toestel. GitHub Pages heeft dat probleem niet.
+
+  Dit bestand + graitt-logo.webp horen samen naar de root van de gh-pages
+  branch. Wijzig je dit bestand, kopieer het dan (met graitt-logo.webp)
+  opnieuw naar die branch en push. De pagina blijft de data zelf ophalen bij
+  overdracht-delen-lezen/overdracht-schade-melden (Supabase Edge Functions,
+  die wél gewoon JSON teruggeven zonder dit content-type-probleem) - alleen
+  het HTML-bestand zelf staat nu ergens anders.
+-->
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>Camperoverdracht</title>
+<style>
+  :root {
+    color-scheme: light;
+    --groen: #1f6b46;
+    --groen-donker: #123e31;
+    --zand: #f7f3ea;
+    --tekst: #26312c;
+    --rand: #ddd6c4;
+    --fout: #b0362e;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--zand);
+    color: var(--tekst);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+  }
+  main {
+    max-width: 40rem;
+    margin: 0 auto;
+    padding: 1.25rem 1.1rem 3rem;
+  }
+  .logo-verhuurder { display: flex; justify-content: center; margin-bottom: 1.25rem; }
+  .logo-verhuurder img { max-height: 4.5rem; max-width: 100%; object-fit: contain; }
+  h1 { font-size: 1.3rem; color: var(--groen-donker); margin: 0 0 0.75rem; }
+  h2 { font-size: 1.02rem; color: var(--groen-donker); margin: 1.5rem 0 0.5rem; }
+  .kaart {
+    background: #fff;
+    border: 1px solid var(--rand);
+    border-radius: 0.85rem;
+    padding: 1rem 1.1rem;
+  }
+  pre.samenvatting {
+    white-space: pre-wrap;
+    font-family: inherit;
+    font-size: 0.92rem;
+    margin: 0;
+  }
+  .fotogrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(9rem, 1fr));
+    gap: 0.6rem;
+    margin-top: 0.6rem;
+  }
+  .fotogrid figure { margin: 0; }
+  .fotogrid img { width: 100%; height: 7rem; object-fit: cover; border-radius: 0.5rem; border: 1px solid var(--rand); }
+  .fotogrid figcaption { font-size: 0.72rem; opacity: 0.75; margin-top: 0.25rem; }
+  .foto-paar { display: flex; gap: 0.3rem; }
+  .foto-paar img { height: 7rem; flex: 1; }
+  .handtekeningen { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 0.6rem; }
+  .handtekening { flex: 1; min-width: 10rem; }
+  .handtekening img { width: 100%; max-height: 6rem; object-fit: contain; background: #fff; border: 1px solid var(--rand); border-radius: 0.5rem; }
+  .handtekening span { display: block; font-size: 0.72rem; opacity: 0.7; margin-top: 0.25rem; }
+  button, .knop {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 0.6rem;
+    padding: 0.65rem 1rem;
+    border: 1px solid var(--rand);
+    background: #fff;
+    color: var(--tekst);
+  }
+  button.primair {
+    background: var(--groen);
+    border-color: var(--groen);
+    color: #fff;
+    font-weight: 600;
+  }
+  button.gevaar {
+    border-color: var(--fout);
+    color: var(--fout);
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  textarea {
+    width: 100%;
+    min-height: 5rem;
+    padding: 0.6rem 0.7rem;
+    border-radius: 0.6rem;
+    border: 1px solid var(--rand);
+    font: inherit;
+    resize: vertical;
+  }
+  .schade-kaart {
+    border: 1px solid var(--fout);
+    background: color-mix(in srgb, var(--fout) 6%, #fff);
+  }
+  .rij { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-top: 0.6rem; }
+  .bevestiging { color: var(--groen-donker); font-weight: 600; }
+  footer {
+    margin-top: 2.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--rand);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    text-align: center;
+  }
+  footer img { height: 1.6rem; }
+  footer a { color: var(--groen-donker); font-size: 0.8rem; text-decoration: none; font-weight: 600; }
+  #status { font-size: 0.92rem; }
+</style>
+</head>
+<body>
+<main id="app">
+  <div id="status">Bezig met laden…</div>
+</main>
+
+<script>
+(function () {
+  var SUPABASE_URL = "https://iyohbvoskgfjalcszzbz.supabase.co";
+  var PUBLISHABLE_KEY = "sb_publishable_bM4BjadTMIgOcblK-ahfmA_vrAyI5uB";
+  var GRAITT_LOGO = "graitt-logo.webp";
+
+  function h(tag, attrs, children) {
+    var el = document.createElement(tag);
+    attrs = attrs || {};
+    for (var k in attrs) {
+      if (k === "text") el.textContent = attrs[k];
+      else if (k === "html") el.innerHTML = attrs[k];
+      else el.setAttribute(k, attrs[k]);
+    }
+    (children || []).forEach(function (c) { if (c) el.appendChild(c); });
+    return el;
+  }
+
+  function params() {
+    return new URLSearchParams(window.location.search);
+  }
+
+  async function roepFunctieAan(naam, body) {
+    var res = await fetch(SUPABASE_URL + "/functions/v1/" + naam, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + PUBLISHABLE_KEY,
+        "apikey": PUBLISHABLE_KEY,
+      },
+      body: JSON.stringify(body),
+    });
+    var data = null;
+    try { data = await res.json(); } catch (e) {}
+    return { ok: res.ok, status: res.status, data: data };
+  }
+
+  function fotoElement(label, vertrek, nu) {
+    var fig = h("figure");
+    if (vertrek && nu) {
+      var paar = h("div", { class: "foto-paar" }, [
+        h("img", { src: vertrek, alt: label + " - bij vertrek" }),
+        h("img", { src: nu, alt: label + " - nu" }),
+      ]);
+      fig.appendChild(paar);
+    } else {
+      fig.appendChild(h("img", { src: vertrek || nu, alt: label }));
+    }
+    fig.appendChild(h("figcaption", { text: label }));
+    return fig;
+  }
+
+  function downloadTekst(tekst, bestandsnaam) {
+    var blob = new Blob([tekst], { type: "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = h("a", { href: url, download: bestandsnaam });
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function render(samenvatting, token) {
+    var app = document.getElementById("app");
+    app.innerHTML = "";
+
+    if (samenvatting.verhuurderLogo) {
+      app.appendChild(h("div", { class: "logo-verhuurder" }, [
+        h("img", { src: samenvatting.verhuurderLogo, alt: "Logo verhuurder" }),
+      ]));
+    }
+
+    app.appendChild(h("h1", { text: samenvatting.huurderNaam ? "Camperoverdracht - " + samenvatting.huurderNaam : "Camperoverdracht" }));
+
+    var kaart = h("div", { class: "kaart" }, [
+      h("pre", { class: "samenvatting", text: samenvatting.tekst }),
+    ]);
+    app.appendChild(kaart);
+
+    if (samenvatting.fotos && samenvatting.fotos.length > 0) {
+      app.appendChild(h("h2", { text: "Foto's" }));
+      var grid = h("div", { class: "fotogrid" });
+      samenvatting.fotos.forEach(function (f) {
+        grid.appendChild(fotoElement(f.label, f.vertrek, f.nu));
+      });
+      app.appendChild(grid);
+    }
+
+    if (samenvatting.extraFotos && samenvatting.extraFotos.length > 0) {
+      app.appendChild(h("h2", { text: "Extra foto's" }));
+      var grid2 = h("div", { class: "fotogrid" });
+      samenvatting.extraFotos.forEach(function (f, i) {
+        grid2.appendChild(fotoElement(f.notitie || ("Schade " + (i + 1)), f.foto, undefined));
+      });
+      app.appendChild(grid2);
+    }
+
+    if (samenvatting.handtekeningHuurder || samenvatting.handtekeningVerhuurder) {
+      app.appendChild(h("h2", { text: "Handtekeningen" }));
+      var handt = h("div", { class: "handtekeningen" });
+      if (samenvatting.handtekeningHuurder) {
+        handt.appendChild(h("div", { class: "handtekening" }, [
+          h("img", { src: samenvatting.handtekeningHuurder, alt: "Handtekening huurder" }),
+          h("span", { text: "Huurder" }),
+        ]));
+      }
+      if (samenvatting.handtekeningVerhuurder) {
+        handt.appendChild(h("div", { class: "handtekening" }, [
+          h("img", { src: samenvatting.handtekeningVerhuurder, alt: "Handtekening verhuurder" }),
+          h("span", { text: "Verhuurder" }),
+        ]));
+      }
+      app.appendChild(handt);
+    }
+
+    app.appendChild(h("div", { class: "rij" }, [
+      h("button", { class: "knop", id: "download-knop", text: "Downloaden" }),
+    ]));
+    document.getElementById("download-knop").addEventListener("click", function () {
+      downloadTekst(samenvatting.tekst, "camperoverdracht.txt");
+    });
+
+    app.appendChild(schadeSectie(token));
+
+    app.appendChild(h("footer", {}, [
+      h("a", { href: "https://www.graittstudio.com", target: "_blank", rel: "noopener" }, [
+        h("img", { src: GRAITT_LOGO, alt: "grAItt Studio" }),
+      ]),
+      h("a", { href: "https://www.graittstudio.com", target: "_blank", rel: "noopener", text: "www.graittstudio.com" }),
+    ]));
+  }
+
+  function schadeSectie(token) {
+    var wrap = h("div", { class: "kaart schade-kaart" }, [
+      h("h2", { text: "Defect of schade tijdens de rit?", style: "margin-top:0" }),
+      h("p", { text: "Zag je onderweg iets dat niet klopt? Laat het hier kort weten - geen chat, gewoon één berichtje.", style: "margin:0 0 0.6rem;font-size:0.85rem;opacity:0.85" }),
+    ]);
+    var tekstveld = h("textarea", { placeholder: "Bv. lekkende koelkast, kras op de zijkant..." });
+    var knop = h("button", { class: "primair" }, [document.createTextNode("Versturen")]);
+    var melding = h("div", { style: "margin-top:0.5rem;font-size:0.85rem" });
+    wrap.appendChild(tekstveld);
+    wrap.appendChild(h("div", { class: "rij" }, [knop]));
+    wrap.appendChild(melding);
+
+    knop.addEventListener("click", async function () {
+      var tekst = tekstveld.value.trim();
+      if (!tekst) return;
+      knop.disabled = true;
+      var res = await roepFunctieAan("overdracht-schade-melden", { token: token, tekst: tekst });
+      knop.disabled = false;
+      if (res.ok) {
+        tekstveld.value = "";
+        tekstveld.style.display = "none";
+        knop.style.display = "none";
+        melding.innerHTML = "";
+        melding.appendChild(h("p", { class: "bevestiging", text: "Bedankt, je melding is verstuurd. De verhuurder heeft 'm ontvangen." }));
+      } else {
+        melding.textContent = "Versturen is niet gelukt. Probeer het zo nog eens.";
+      }
+    });
+
+    return wrap;
+  }
+
+  function toonFout(tekst) {
+    document.getElementById("status").textContent = tekst;
+  }
+
+  (async function start() {
+    var token = params().get("token");
+    if (!token) {
+      toonFout("Geen geldige link - er ontbreekt een token.");
+      return;
+    }
+    var res = await roepFunctieAan("overdracht-delen-lezen", { token: token });
+    if (!res.ok) {
+      if (res.status === 404) toonFout("Deze link bestaat niet (meer).");
+      else if (res.status === 410) toonFout("Deze pagina is verlopen.");
+      else if (res.status === 429) toonFout("Even iets te veel verzoeken achter elkaar - probeer het over een minuut opnieuw.");
+      else toonFout("Er ging iets mis bij het laden van deze pagina.");
+      return;
+    }
+    render(res.data.samenvatting, token);
+  })();
+})();
+</script>
+</body>
+</html>
