@@ -1,18 +1,22 @@
 <!--
-  #188: de publieke "deel"-pagina van een Camperoverdracht. Gehost op GitHub
-  Pages (gh-pages branch, deze map als root) - zowel de "downloads"-
-  Storage-bucket als een Edge Function bleken door Supabase's platform af en
-  toe (onvoorspelbaar, niet zelf te overschrijven) gedowngraded te worden
-  naar text/plain + een sandbox-CSP, waardoor de browser de broncode toonde
-  i.p.v. de pagina te renderen - bevestigd met herhaalde curl-tests én op
-  een echt toestel. GitHub Pages heeft dat probleem niet.
+  #188: de publieke "deel"-pagina van een Camperoverdracht. Live op GitHub
+  Pages via de aparte PUBLIEKE repo graittstudio/travelcare-go-deel (main
+  branch, root) - https://graittstudio.github.io/travelcare-go-deel/.
 
-  Dit bestand + graitt-logo.webp horen samen naar de root van de gh-pages
-  branch. Wijzig je dit bestand, kopieer het dan (met graitt-logo.webp)
-  opnieuw naar die branch en push. De pagina blijft de data zelf ophalen bij
-  overdracht-delen-lezen/overdracht-schade-melden (Supabase Edge Functions,
-  die wél gewoon JSON teruggeven zonder dit content-type-probleem) - alleen
-  het HTML-bestand zelf staat nu ergens anders.
+  Twee redenen voor die aparte repo i.p.v. hier: (1) zowel de "downloads"-
+  Storage-bucket als een Edge Function bleken door Supabase's platform af en
+  toe (onvoorspelbaar) gedowngraded te worden naar text/plain + een
+  sandbox-CSP, waardoor de browser de broncode toonde i.p.v. de pagina te
+  renderen - bevestigd met herhaalde curl-tests én op een echt toestel; (2)
+  GitHub Pages op déze repo werkt niet, want privé (vereist een betaald
+  orgplan) - travelcare-go-deel is bewust publiek en bevat verder geen
+  broncode van de app.
+
+  Wijzig je dit bestand: kopieer het (met graitt-logo.webp) naar een lokale
+  checkout van travelcare-go-deel, commit, push naar main. De pagina blijft
+  de data zelf ophalen bij overdracht-delen-lezen/overdracht-schade-melden
+  (Supabase Edge Functions, die wél gewoon JSON teruggeven zonder dit
+  content-type-probleem) - alleen het HTML-bestand zelf staat elders.
 -->
 <!doctype html>
 <html lang="nl">
