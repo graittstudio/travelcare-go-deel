@@ -269,29 +269,36 @@
   function schadeSectie(token) {
     var wrap = h("div", { class: "kaart schade-kaart" }, [
       h("h2", { text: "Defect of schade tijdens de rit?", style: "margin-top:0" }),
-      h("p", { text: "Zag je onderweg iets dat niet klopt? Laat het hier kort weten - geen chat, gewoon één berichtje.", style: "margin:0 0 0.6rem;font-size:0.85rem;opacity:0.85" }),
+      h("p", { text: "Zag je onderweg iets dat niet klopt? Laat het hier kort weten - geen chat, gewoon één berichtje. De pagina en je melding blijven gewoon zichtbaar, ook nadat je 'm verstuurd hebt.", style: "margin:0 0 0.6rem;font-size:0.85rem;opacity:0.85" }),
     ]);
+    var verzonden = h("div", { style: "display:flex;flex-direction:column;gap:0.5rem;margin-bottom:0.6rem" });
     var tekstveld = h("textarea", { placeholder: "Bv. lekkende koelkast, kras op de zijkant..." });
     var knop = h("button", { class: "primair" }, [document.createTextNode("Versturen")]);
-    var melding = h("div", { style: "margin-top:0.5rem;font-size:0.85rem" });
+    var status = h("div", { style: "margin-top:0.5rem;font-size:0.85rem" });
+    wrap.appendChild(verzonden);
     wrap.appendChild(tekstveld);
     wrap.appendChild(h("div", { class: "rij" }, [knop]));
-    wrap.appendChild(melding);
+    wrap.appendChild(status);
 
     knop.addEventListener("click", async function () {
       var tekst = tekstveld.value.trim();
       if (!tekst) return;
       knop.disabled = true;
+      status.textContent = "";
       var res = await roepFunctieAan("overdracht-schade-melden", { token: token, tekst: tekst });
       knop.disabled = false;
       if (res.ok) {
+        // De pagina en het formulier blijven staan (nog een melding kan
+        // altijd) - alleen de zojuist verzonden tekst wordt hierboven blijvend
+        // getoond, zodat die niet verdwijnt zodra de bevestiging er is.
+        var kaartje = h("div", { style: "border:1px solid var(--rand);border-radius:0.5rem;padding:0.5rem 0.7rem" }, [
+          h("p", { class: "bevestiging", text: "✓ Verstuurd, de verhuurder heeft 'm ontvangen:", style: "margin:0 0 0.3rem" }),
+          h("p", { text: tekst, style: "margin:0;white-space:pre-wrap;font-size:0.85rem" }),
+        ]);
+        verzonden.appendChild(kaartje);
         tekstveld.value = "";
-        tekstveld.style.display = "none";
-        knop.style.display = "none";
-        melding.innerHTML = "";
-        melding.appendChild(h("p", { class: "bevestiging", text: "Bedankt, je melding is verstuurd. De verhuurder heeft 'm ontvangen." }));
       } else {
-        melding.textContent = "Versturen is niet gelukt. Probeer het zo nog eens.";
+        status.textContent = "Versturen is niet gelukt. Probeer het zo nog eens.";
       }
     });
 
